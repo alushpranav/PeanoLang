@@ -24,7 +24,8 @@ Typing rules:
     f.a.b                                    -> return type of f (each arg checked)
     variables get their type from the pattern position or from the suchthat expression
 """
-from utils import LangError, where as at
+from utils import LangError
+from utils import where as at
 
 PEANO = ("Peano",)
 BOOLEAN = ("Boolean",)

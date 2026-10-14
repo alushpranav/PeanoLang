@@ -1,0 +1,7 @@
+and Boolean => Boolean => Boolean ::
+  .Yes.Yes := Yes
+  .x.y := No
+
+or Boolean => Boolean => Boolean ::
+  .No.No := No
+  .x.y := Yes

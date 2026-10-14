@@ -3,6 +3,8 @@
 maxoftwo Peano => Peano => Peano ::   -- arith.txt
 add Peano => Peano => Peano ::   -- arith.txt
 sub Peano => Peano => Peano ::   -- arith.txt
+and Boolean => Boolean => Boolean ::   -- boolean.txt
+or Boolean => Boolean => Boolean ::   -- boolean.txt
 gt Peano => Peano => Boolean ::   -- compare.txt
 lt Peano => Peano => Boolean ::   -- compare.txt
 eq Peano => Peano => Boolean ::   -- compare.txt
