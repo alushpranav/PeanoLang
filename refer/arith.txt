@@ -1,0 +1,15 @@
+maxoftwo Peano => Peano => Peano ::
+  .Nil.x := x
+  .x.Nil := x
+  .(Nx.x).(Nx.y) := Nx.(zz)
+    suchthat
+      zz := maxoftwo.x.y
+
+add Peano => Peano => Peano ::
+  .Nil.y := y
+  .(Nx.x).y := Nx.(add.x.y)
+
+sub Peano => Peano => Peano ::
+  .x.Nil := x
+  .Nil.y := Nil
+  .(Nx.x).(Nx.y) := sub.x.y

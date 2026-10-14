@@ -1,0 +1,10 @@
+-- made by refer.py, do not edit. Run  python lib/refer.py  to rebuild.
+-- signature                                   -- file
+maxoftwo Peano => Peano => Peano ::   -- arith.txt
+add Peano => Peano => Peano ::   -- arith.txt
+sub Peano => Peano => Peano ::   -- arith.txt
+gt Peano => Peano => Boolean ::   -- compare.txt
+lt Peano => Peano => Boolean ::   -- compare.txt
+eq Peano => Peano => Boolean ::   -- compare.txt
+d2p Literal => Peano ::   -- digits.txt
+p2d Peano => Literal ::   -- digits.txt

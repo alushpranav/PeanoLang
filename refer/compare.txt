@@ -1,0 +1,22 @@
+--Greater Than
+gt Peano => Peano => Boolean ::
+  .Nil.x := No
+  .Nil.Nil := No
+  .x.Nil := Yes
+  .(Nx.x).(Nx.y) := gt.x.y
+
+
+--Lower Than
+lt Peano => Peano => Boolean ::
+  .Nil.Nil := No
+  .Nil.x := Yes
+  .x.Nil := No
+  .(Nx.x).(Nx.y) := lt.x.y
+
+
+--Is Equal
+eq Peano => Peano => Boolean ::
+  .Nil.Nil := Yes
+  .x.Nil := No
+  .Nil.x := No
+  .(Nx.x).(Nx.y) := eq.x.y

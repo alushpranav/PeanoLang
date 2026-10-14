@@ -1,0 +1,23 @@
+d2p Literal => Peano ::
+  .0 := Nil
+  .1 := Nx.Nil
+  .2 := Nx.(Nx.Nil)
+  .3 := Nx.(Nx.(Nx.Nil))
+  .4 := Nx.(Nx.(Nx.(Nx.Nil)))
+  .5 := Nx.(Nx.(Nx.(Nx.(Nx.Nil))))
+  .6 := Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil)))))
+  .7 := Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil))))))
+  .8 := Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil)))))))
+  .9 := Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil))))))))
+
+p2d Peano => Literal ::
+  .Nil := 0
+  .(Nx.Nil) := 1
+  .(Nx.(Nx.Nil)) := 2
+  .(Nx.(Nx.(Nx.Nil))) := 3
+  .(Nx.(Nx.(Nx.(Nx.Nil)))) := 4
+  .(Nx.(Nx.(Nx.(Nx.(Nx.Nil))))) := 5
+  .(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil)))))) := 6
+  .(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil))))))) := 7
+  .(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil)))))))) := 8
+  .(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.(Nx.Nil))))))))) := 9
