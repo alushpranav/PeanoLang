@@ -1,0 +1,16 @@
+joinseq Seq.Peano => Seq.Peano => Seq.Peano ::
+  .MT.x := x
+  .x.MT := x
+  .(Dsq.x.y).z := Dsq.x.(joinseq.y.z)
+
+
+jointuple Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) ::
+  .MT.x := x
+  .x.MT := x
+  .(Dsq.x.y).z := Dsq.x.(jointuple.y.z)
+
+
+jointuple2 Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) ::
+  .MT.x := x
+  .x.MT := x
+  .(Dsq.x.y).z := Dsq.x.(jointuple2.y.z)

@@ -10,3 +10,6 @@ lt Peano => Peano => Boolean ::   -- compare.txt
 eq Peano => Peano => Boolean ::   -- compare.txt
 d2p Literal => Peano ::   -- digits.txt
 p2d Peano => Literal ::   -- digits.txt
+joinseq Seq.Peano => Seq.Peano => Seq.Peano ::   -- joins.txt
+jointuple Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) ::   -- joins.txt
+jointuple2 Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) ::   -- joins.txt
