@@ -3,7 +3,7 @@
 Every tree node starts with its kind:
 
     ['Var', 'x']                 variable
-    ['Con', 'Nil']               constant: Nil, MT, Yes, No, or one digit 0-9
+    ['Con', 'Nil']               constant: Nil, MT, Yes, No, or a Literal (one symbol: 5, 'a', '%')
     ['Op',  'Nx', [child]]       built-in with children (Nx, Dsq, Mktp)
 
 Expressions (RHS) also have:
@@ -15,6 +15,7 @@ Syntax rules enforced here:
     - Name.(...)  is the only way to give a name its children. 'Name(' is an error.
     - Brackets only group.
     - A pair is written Mktp.a.b. There is no (a,b) style and there are no commas.
+    - A Literal is one symbol of any kind: a bare digit (5) or a quoted symbol ('a', '%', '.').
     - Capital first letter = built-in, lowercase (or _) first letter = variable / function.
 """
 
@@ -25,9 +26,50 @@ class LangError(Exception):
     """An error in the user's program (with line info)."""
 
 
+# A quoted Literal like 'a' is swapped for a placeholder (LIT + code + END) before the
+# text is split on dots, brackets and spaces, so that 'a', '.', '(' or ' ' are safe.
+LIT, END = "\x01", "\x02"
+
+
+def protect(s):
+    """Replace every quoted Literal 'c' with a placeholder. Spaces are kept."""
+    out, i = [], 0
+    while i < len(s):
+        if s[i] != "'":
+            out.append(s[i])
+            i += 1
+        elif i + 2 < len(s) and s[i + 2] == "'":
+            out.append(f"{LIT}{ord(s[i + 1])}{END}")
+            i += 3
+        else:
+            raise ValueError("A quoted Literal is exactly one symbol between quotes, like 'a'")
+    return "".join(out)
+
+
+def unprotect(s):
+    """Placeholders back to 'c', for error messages."""
+    out, i = [], 0
+    while i < len(s):
+        if s[i] == LIT and END in s[i:]:
+            j = s.index(END, i)
+            out.append("'" + chr(int(s[i + 1:j])) + "'")
+            i = j + 1
+        else:
+            out.append(s[i])
+            i += 1
+    return "".join(out)
+
+
+def lit_char(token):
+    """The symbol inside a placeholder token."""
+    if not (token.startswith(LIT) and token.endswith(END) and token[1:-1].isdigit()):
+        raise ValueError(f"Bad Literal in: {unprotect(token)}")
+    return chr(int(token[1:-1]))
+
+
 def compact(s):
-    """Remove all whitespace. No token in this language contains a space."""
-    return "".join(s.split())
+    """Remove all whitespace (except inside a quoted Literal)."""
+    return "".join(protect(s).split())
 
 
 def where(func, line):
@@ -132,9 +174,14 @@ def _break(s):
             raise ValueError(f"Function call not allowed on LHS: {s}")
         return ["Var", head]
 
+    if head[0] == LIT:
+        if children:
+            raise ValueError(f"A Literal can't have children: {s}")
+        return ["Con", lit_char(head)]
+
     if head[0].isdigit():
         if not head.isdigit() or len(head) != 1:
-            raise ValueError(f"A Literal is a single digit 0-9, got '{head}'")
+            raise ValueError(f"A bare digit is a Literal (one digit), got '{head}'. Write a symbol as 'a'")
         if children:
             raise ValueError(f"A Literal can't have children: {s}")
         return ["Con", head]
@@ -164,7 +211,11 @@ def _expr(s, funcs, bound, allow_hash):
     if head.startswith("("):
         raise ValueError(f"A bracket group can't take arguments in: {s}")
 
-    # numbers
+    # literals and numbers
+    if head.startswith(LIT):
+        if rest:
+            raise ValueError(f"A Literal can't take arguments in: {s}")
+        return ["Con", lit_char(head)]
     if head.isdigit():
         if rest:
             raise ValueError(f"A number can't take arguments in: {s}")
@@ -173,6 +224,12 @@ def _expr(s, funcs, bound, allow_hash):
         if rest:
             raise ValueError(f"A number can't take arguments in: {s}")
         return ["Num", int(head[1:])]
+
+    # in a call typed on the terminal, one bare symbol is a Literal:  toh.#2.a.b.c
+    if allow_hash and len(head) == 1 and head not in "()" and head not in funcs and head not in bound:
+        if rest:
+            raise ValueError(f"A Literal can't take arguments in: {s}")
+        return ["Con", head]
 
     # function call or variable
     if _is_var(head):
@@ -185,7 +242,8 @@ def _expr(s, funcs, bound, allow_hash):
             if rest:
                 raise ValueError(f"Variable '{head}' can't take arguments in: {s}")
             return ["Var", head]
-        raise ValueError(f"Unknown name '{head}' in: {s}")
+        hint = "   (a Literal is one symbol: a, %, 7)" if allow_hash else ""
+        raise ValueError(f"Unknown name '{head}' in: {s}{hint}")
 
     # built-in
     if head not in BUILTINS:

@@ -22,7 +22,7 @@ python lib/run.py texts/mycode.txt "maxoftwo.#120.#130"
 | Argument | Means |
 |---|---|
 | `#120` | Peano number |
-| `7` | Literal (one digit) |
+| `7`, `a`, `%` | Literal (any one symbol) |
 | `[#1,#4,#2]` / `[1,2,3]` / `[]` | list of Peano / list of digits / empty list |
 | `(Mktp.#3.#4)` | pair |
 | `Yes`, `No` | Boolean |
@@ -55,7 +55,7 @@ maxoftwo Peano => Peano => Peano ::
 - Calls and built-ins take children with a dot: `f.a.b`, `Nx.x`, `Dsq.x.xs`, `Mktp.a.b`. Brackets only group
 - Built-ins start with a capital (`Nx`, `Dsq`, `Mktp`, `MT`, `Nil`, `Yes`, `No`), your functions with a lowercase letter
 - Types: `Peano`, `Boolean`, `Literal`, `Seq.<type>`, `Tuple.<type>.<type>` (a `Seq` or `Tuple` always needs its types)
-- A bare digit is a Literal; use `d2p` / `p2d` to convert to / from Peano
+- A Literal is any one symbol. In a terminal call just write it (`toh.#3.a.b.c`). Inside a program write it in quotes (`'a'`, `'%'`), a bare digit (`7`) needs none. Use `d2p` / `p2d` to convert to / from Peano
 
 ## refer/ - reuse functions
 
@@ -67,13 +67,21 @@ Run `refer.py` again whenever you change a file in `refer/`.
 
 ## Use from Python (for tests)
 
-Put your file next to `run.py`, or add `lib/` to your path.
+Keep your test file in `root/` (next to `lib/` and `texts/`). It works from any folder.
 
 ```python
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "lib"))
+
 from run import load_program, run_call, to_python
 
-funcs = load_program("../texts/mycode.txt")   # strict=True for --strict
-assert to_python(run_call(funcs, "add.#3.#4")) == 7
+funcs = load_program(str(ROOT / "texts" / "sort.txt"), strict=True)  # strict=True for --strict
+assert to_python(run_call(funcs, "sort.[#3,#2,#1]")) == [1, 2, 3]
+assert to_python(run_call(funcs, "sort.MT")) == []
+print("Passed!")
 ```
 
 `to_python` gives plain Python (int, list, tuple, bool, str). `fmt` gives the same text as the terminal. Errors raise `LangError`.

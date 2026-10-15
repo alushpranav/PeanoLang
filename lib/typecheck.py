@@ -16,7 +16,7 @@ and it fits any Seq.
 
 Typing rules:
     Nil, Nx.x, numbers with 2+ digits, #N   -> Peano       (x must be Peano)
-    one digit 0-9                            -> Literal
+    one symbol (5, 'a', '%')                 -> Literal
     Yes, No                                  -> Boolean
     MT                                       -> Seq of anything
     Dsq.x.xs                                 -> Seq.T       (x is T, xs is Seq.T)
@@ -24,8 +24,7 @@ Typing rules:
     f.a.b                                    -> return type of f (each arg checked)
     variables get their type from the pattern position or from the suchthat expression
 """
-from utils import LangError
-from utils import where as at
+from utils import LangError, where as at
 
 PEANO = ("Peano",)
 BOOLEAN = ("Boolean",)
@@ -112,7 +111,7 @@ def unify(a, b):
 
 
 def const_type(name):
-    if name.isdigit():
+    if len(name) == 1:      # a Literal: one symbol
         return LITERAL
     if name == "Nil":
         return PEANO
@@ -124,8 +123,10 @@ def const_type(name):
 # ---------------------------------------------------------------- showing code in messages
 def render(node):
     kind = node[0]
-    if kind in ("Var", "Con"):
+    if kind == "Var":
         return node[1]
+    if kind == "Con":
+        return "'" + node[1] + "'" if len(node[1]) == 1 else node[1]
     if kind == "Num":
         return "#" + str(node[1])          # #N = Peano number (a bare digit is a Literal)
     return node[1] + "".join("." + _wrap(c) for c in node[2])
@@ -146,7 +147,7 @@ def need(expected, got, where, node):
     except TypeMismatch:
         hint = ""
         if expected == PEANO and got == LITERAL:
-            hint = "   (a digit is a Literal: use d2p.<digit> to get a Peano)"
+            hint = "   (a digit or quoted symbol is a Literal: use d2p.<digit> to get a Peano)"
         elif expected == LITERAL and got == PEANO:
             hint = "   (use p2d.<peano> to get a Literal)"
         raise TypeMismatch(

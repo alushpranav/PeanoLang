@@ -17,8 +17,9 @@ from pathlib import Path
 from pprint import pprint
 
 from typecheck import infer, typecheck_program
-from utils import (LangError, break_pattern, collect_vars, compact, parse_expr,
-                   split_top, where)
+from utils import compact as _compact
+from utils import (LangError, break_pattern, collect_vars, parse_expr,
+                   split_top, protect, unprotect, where)
 
 
 # ================================================================ loading
@@ -38,6 +39,12 @@ def read_program(path, strict=False):
 
         def fail(msg):
             raise LangError(f"line {n}: {msg}")
+
+        def compact(s):  # same as utils.compact, but errors name the line
+            try:
+                return _compact(s)
+            except ValueError as e:
+                fail(str(e))
 
         if strict and raw[:indent].count("\t"):
             fail("tabs are not allowed for indentation in --strict mode")
@@ -149,7 +156,7 @@ def analyse(functions):
                 clause["patterns"] = patterns
                 clause["body_tree"] = parse_expr(clause["body"], functions, set(seen))
             except ValueError as e:
-                raise LangError(f"{where(func, clause['line'])}: {e}")
+                raise LangError(f"{where(func, clause['line'])}: {unprotect(str(e))}")
     return functions
 
 
@@ -199,7 +206,7 @@ def add_from_refer(functions, call_text=None, index=None, refer_dir=REFER_DIR):
     and that refer/ has. Your own functions always win. Works through
     functions that those functions use, too."""
     index = read_index(refer_dir) if index is None else index
-    todo = set(_names(call_text or ""))
+    todo = set(_names(protect(call_text or "")))
     for func in list(functions.values()):
         todo |= called_names(func)
     cache = {}
@@ -292,7 +299,7 @@ def match(p, v, env):
         return True
     if kind == "Con":
         name = p[1]
-        return v == (("Lit", name) if name.isdigit() else (name,))
+        return v == (("Lit", name) if len(name) == 1 else (name,))
     if kind == "Op":
         if v[0] != p[1]:
             return False
@@ -306,7 +313,7 @@ def evaluate(node, functions, env):
         return env[node[1]]
     if kind == "Con":
         name = node[1]
-        return ("Lit", name) if name.isdigit() else (name,)
+        return ("Lit", name) if len(name) == 1 else (name,)
     if kind == "Num":
         return peano(node[1])
     if kind == "Op":
@@ -429,7 +436,7 @@ def convert_lists(expression):
 def run_call(functions, text):
     """Run a call written exactly like on the terminal, e.g. "maxoftwo.#4.#9"
     or "append.[#1,#2].[#3]". Type-checks it, then returns the raw value."""
-    tree = parse_expr(convert_lists(text), functions, set(), allow_hash=True)
+    tree = parse_expr(convert_lists(protect(text)), functions, set(), allow_hash=True)
     try:
         infer(tree, {}, functions)  # type-check the call too
     except ValueError as e:
@@ -491,7 +498,7 @@ def main(argv):
             extra = f"  + from refer: {', '.join(ref)}" if ref else ""
             print(f"Loaded {len(own)} function(s): " + ", ".join(own) + extra)
     except (LangError, ValueError) as e:
-        print("Error:", e)
+        print("Error:", unprotect(str(e)))
         return 1
     except RecursionError:
         print("Error: recursion too deep")
