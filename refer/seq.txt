@@ -1,0 +1,17 @@
+smallest Boolean => Peano => Peano => Seq.Peano => Peano ::
+  .Yes.x.y.MT := x
+  .No.x.y.MT := y
+  .Yes.x.y.(Dsq.z.zs) := smallest.(lt.x.z).x.z.zs
+  .No.x.y.(Dsq.z.zs) := smallest.(lt.y.z).y.z.zs
+
+rem_smallest Boolean => Peano => Peano => Seq.Peano => Seq.Peano ::
+  .Yes.x.y.MT := Dsq.y.MT
+  .No.x.y.MT := Dsq.x.MT
+  .Yes.x.y.(Dsq.z.zs) := Dsq.y.(rem_smallest.(lt.x.z).x.z.zs)
+  .No.x.y.(Dsq.z.zs) := Dsq.x.(rem_smallest.(lt.y.z).y.z.zs)
+
+search Seq.Peano => Peano => Boolean ::
+  .MT.x := No
+  .x.Nil := No
+  .(Dsq.x.xs).y := or.(eq.x.y).(search.xs.y)
+

@@ -13,3 +13,20 @@ sub Peano => Peano => Peano ::
   .x.Nil := x
   .Nil.y := Nil
   .(Nx.x).(Nx.y) := sub.x.y
+
+
+----------- divide a by b return (quotient, remainder)-------
+divide Peano => Peano => Tuple.Peano.Peano ::
+  .Nil.x := Mktp.Nil.Nil
+  .x.y := _divide.(gt.y.x).x.y
+
+_divide Boolean => Peano => Peano => Tuple.Peano.Peano ::
+  .Yes.x.y := Mktp.Nil.y
+  .No.x.y := inq.zz
+    suchthat 
+      zz := _divide.(gt.y.(sub.x.y)).(sub.x.y).y
+
+inq Tuple.Peano.Peano => Tuple.Peano.Peano ::
+  .(Mktp.x.y) := Mktp.(Nx.x).y
+
+-------------------------End of Divide------------------------

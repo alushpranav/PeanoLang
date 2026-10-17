@@ -1,0 +1,5 @@
+
+sort_selection Seq.Peano => Seq.Peano ::
+  .MT := MT
+  .(Dsq.x.MT) := Dsq.x.MT
+  .(Dsq.x.(Dsq.y.ys)) := Dsq.(smallest.(lt.x.y).x.y.ys).(sort_selection.(rem_smallest.(lt.x.y).x.y.ys))

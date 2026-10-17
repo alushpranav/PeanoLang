@@ -1,0 +1,10 @@
+set_intersection Seq.Peano => Seq.Peano => Seq.Peano ::
+  .MT.x := MT
+  .x.MT := MT
+  .(Dsq.x.xs).ys := _build.(search.ys.x).x.xs.ys
+
+_build Boolean => Peano => Seq.Peano => Seq.Peano => Seq.Peano ::
+  .Yes.x.MT.ys := Dsq.x.MT
+  .No.x.MT.ys := MT
+  .Yes.x.(Dsq.y.ys).zs := Dsq.x.(_build.(search.zs.y).y.ys.zs)
+  .No.x.(Dsq.y.ys).zs := _build.(search.zs.y).y.ys.zs

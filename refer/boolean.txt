@@ -5,3 +5,7 @@ and Boolean => Boolean => Boolean ::
 or Boolean => Boolean => Boolean ::
   .No.No := No
   .x.y := Yes
+
+not Boolean => Boolean ::
+  .Yes := No
+  .No := Yes

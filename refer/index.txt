@@ -3,8 +3,12 @@
 maxoftwo Peano => Peano => Peano ::   -- arith.txt
 add Peano => Peano => Peano ::   -- arith.txt
 sub Peano => Peano => Peano ::   -- arith.txt
+divide Peano => Peano => Tuple.Peano.Peano ::   -- arith.txt
+_divide Boolean => Peano => Peano => Tuple.Peano.Peano ::   -- arith.txt
+inq Tuple.Peano.Peano => Tuple.Peano.Peano ::   -- arith.txt
 and Boolean => Boolean => Boolean ::   -- boolean.txt
 or Boolean => Boolean => Boolean ::   -- boolean.txt
+not Boolean => Boolean ::   -- boolean.txt
 gt Peano => Peano => Boolean ::   -- compare.txt
 lt Peano => Peano => Boolean ::   -- compare.txt
 eq Peano => Peano => Boolean ::   -- compare.txt
@@ -13,3 +17,11 @@ p2d Peano => Literal ::   -- digits.txt
 joinseq Seq.Peano => Seq.Peano => Seq.Peano ::   -- joins.txt
 jointuple Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) ::   -- joins.txt
 jointuple2 Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) => Seq.(Tuple.Literal.Literal) ::   -- joins.txt
+smallest Boolean => Peano => Peano => Seq.Peano => Peano ::   -- seq.txt
+rem_smallest Boolean => Peano => Peano => Seq.Peano => Seq.Peano ::   -- seq.txt
+search Seq.Peano => Peano => Boolean ::   -- seq.txt
+set_intersection Seq.Peano => Seq.Peano => Seq.Peano ::   -- set_intersection.txt
+_build Boolean => Peano => Seq.Peano => Seq.Peano => Seq.Peano ::   -- set_intersection.txt
+sort_selection Seq.Peano => Seq.Peano ::   -- sort.txt
+v1 Tuple.Peano.Peano => Peano ::   -- tuple.txt
+v2 Tuple.Peano.Peano => Peano ::   -- tuple.txt

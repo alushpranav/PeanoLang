@@ -1,0 +1,6 @@
+
+v1 Tuple.Peano.Peano => Peano ::
+  .(Mktp.x.y) := x
+
+v2 Tuple.Peano.Peano => Peano ::
+  .(Mktp.x.y) := y
