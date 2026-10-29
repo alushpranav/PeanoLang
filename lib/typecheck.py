@@ -4,7 +4,7 @@ Types, as written in function headers:
     Peano
     Boolean
     Literal
-    Seq.<type>              e.g.  Seq.Peano    Seq.Literal    Seq.Seq.Peano
+    Seq.<type>              e.g.  Seq.Peano    Seq.Literal    Seq.(Seq.Peano)
     Tuple.<type>.<type>     exactly two parts, e.g.  Tuple.Peano.Peano
                             brackets are optional:   Tuple.Peano.(Seq.Peano)
 
@@ -15,8 +15,8 @@ None as the element of a Seq means "not known yet". Only MT (and []) makes it,
 and it fits any Seq.
 
 Typing rules:
-    Nil, Nx.x, numbers with 2+ digits, #N   -> Peano       (x must be Peano)
-    one symbol (5, 'a', '%')                 -> Literal
+    Nil, Nx.x, numbers                      -> Peano       (x must be Peano)
+    named constants from literal_dict.yaml   -> Literal
     Yes, No                                  -> Boolean
     MT                                       -> Seq of anything
     Dsq.x.xs                                 -> Seq.T       (x is T, xs is Seq.T)
@@ -25,6 +25,7 @@ Typing rules:
     variables get their type from the pattern position or from the suchthat expression
 """
 from utils import LangError, where as at
+from utils import LITERAL_DICT
 
 PEANO = ("Peano",)
 BOOLEAN = ("Boolean",)
@@ -65,7 +66,10 @@ def _parse(s, i, text):
     if head == "Seq":
         if j >= len(s) or s[j] != ".":
             raise ValueError("'Seq' needs an element type, e.g. Seq.Peano")
-        inner, j = _parse(s, j + 1, text)
+        inner_start = j + 1
+        inner, j = _parse(s, inner_start, text)
+        if inner[0] == "Seq" and s[inner_start] != "(":
+            raise ValueError("a nested Seq type must be parenthesized, e.g. Seq.(Seq.Peano)")
         return ("Seq", inner), j
     if head == "Tuple":
         err = "'Tuple' needs exactly two types, e.g. Tuple.Peano.Peano"
@@ -111,7 +115,7 @@ def unify(a, b):
 
 
 def const_type(name):
-    if len(name) == 1:      # a Literal: one symbol
+    if name in LITERAL_DICT:
         return LITERAL
     if name == "Nil":
         return PEANO
@@ -126,9 +130,9 @@ def render(node):
     if kind == "Var":
         return node[1]
     if kind == "Con":
-        return "'" + node[1] + "'" if len(node[1]) == 1 else node[1]
+        return node[1]
     if kind == "Num":
-        return "#" + str(node[1])          # #N = Peano number (a bare digit is a Literal)
+        return str(node[1])                # Peano number
     return node[1] + "".join("." + _wrap(c) for c in node[2])
 
 
@@ -147,7 +151,7 @@ def need(expected, got, where, node):
     except TypeMismatch:
         hint = ""
         if expected == PEANO and got == LITERAL:
-            hint = "   (a digit or quoted symbol is a Literal: use d2p.<digit> to get a Peano)"
+            hint = "   (a named symbol is a Literal: use d2p.<name> to get a Peano)"
         elif expected == LITERAL and got == PEANO:
             hint = "   (use p2d.<peano> to get a Literal)"
         raise TypeMismatch(

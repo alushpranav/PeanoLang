@@ -1,0 +1,44 @@
+getRoot Seq.(Tuple.Peano.Peano) => Peano ::
+  .MT := Nil
+  .(Dsq.(Mktp.parent.child).MT) := parent
+  .(Dsq.(Mktp.parent.child).edges) := findParent.parent.(Dsq.(Mktp.parent.child).edges)
+
+findParent Peano => Seq.(Tuple.Peano.Peano) => Peano ::
+  .cnd.(Dsq.(Mktp.parent.child).rest) := ifParent.check.cnd.nxTuple.rest.all
+    suchthat
+      check := eq.cnd.child
+      nxTuple := Mktp.parent.child
+      all := (Dsq.(Mktp.parent.child).rest)
+
+_findParent Boolean => Peano => Tuple.Peano.Peano => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) => Peano ::
+  .Yes.cnd.(Mktp.p.c).rest.all := findParent.p.all
+  .No.cnd.(Mktp.p.c).MT.all := cnd
+  .No.cnd.(Mktp.p.c).(Dsq.(Mktp.p2.c2).rest).all := _findParent.check.cnd.(Mktp.p2.c2).rest.all
+    suchthat
+      check := eq.cnd.c2
+  
+
+getSubtree Peano => Seq.(Tuple.Peano.Peano) => Tuple.Peano.(Seq.(Tuple.Peano.Peano)) ::
+ .x.MT := Mktp.x.MT
+ .x.y := Mktp.x.(getChildren.x.y)
+
+getChildren Peano => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) ::
+  .x.MT := MT
+  .x.(Dsq.(Mktp.parent.child).rest) := _getChildren.check.x.(Mktp.parent.child).rest.all
+    suchthat
+      check := eq.x.parent
+      all := (Dsq.(Mktp.parent.child).rest)
+
+_getChildren Boolean => Peano => Tuple.Peano.Peano => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) => Seq.(Tuple.Peano.Peano) ::
+  .Yes.r.(Mktp.parent.child).MT.all := Dsq.(Mktp.parent.child).childSubtree
+    suchthat
+      childSubtree := getChildren.child.all
+  .No.r.t.MT.all := MT
+  .Yes.r.(Mktp.parent.child).(Dsq.(Mktp.nextParent.nextChild).rest).all := Dsq.(Mktp.parent.child).(jointuple.childSubtree.continue)
+    suchthat
+      childSubtree := getChildren.child.all
+      check := eq.r.nextParent
+      continue := _getChildren.check.r.(Mktp.nextParent.nextChild).rest.all
+  .No.r.t.(Dsq.(Mktp.parent.child).rest).all := _getChildren.check.r.(Mktp.parent.child).rest.all
+    suchthat
+      check := eq.r.parent

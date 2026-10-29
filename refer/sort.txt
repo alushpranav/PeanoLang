@@ -1,4 +1,3 @@
-
 sort_selection Seq.Peano => Seq.Peano ::
   .MT := MT
   .(Dsq.x.MT) := Dsq.x.MT

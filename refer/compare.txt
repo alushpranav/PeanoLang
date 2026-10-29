@@ -1,16 +1,14 @@
 --Greater Than
 gt Peano => Peano => Boolean ::
   .Nil.x := No
-  .Nil.Nil := No
   .x.Nil := Yes
   .(Nx.x).(Nx.y) := gt.x.y
 
 
 --Lower Than
 lt Peano => Peano => Boolean ::
-  .Nil.Nil := No
-  .Nil.x := Yes
   .x.Nil := No
+  .Nil.x := Yes
   .(Nx.x).(Nx.y) := lt.x.y
 
 

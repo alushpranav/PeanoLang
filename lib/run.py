@@ -2,13 +2,14 @@
 
 usage:
     python run.py program.txt                         load and type-check the program
-    python run.py program.txt "maxoftwo.#4.#9"        run a call
-    python run.py program.txt "append.[#1,#2].[#3]"   lists use [ ]
+    python run.py program.txt "maxoftwo.4.9"           run a call
+    python run.py "add.4.9"                           run a function from refer/
+    python run.py program.txt "append.[1,2].[3]"       lists use [ ]
 options:
-    --strict   enforce layout (2-space indents, '::' ends each signature)
     --dump     print the parsed program
     --raw      print the result as raw Nx(...) / Dsq(...)
     --norefer  do not look in refer/ for functions the file does not define
+    --recursion-limit N  set the recursion limit (default: 10000)
 """
 import re
 import sys
@@ -19,11 +20,25 @@ from pprint import pprint
 from typecheck import infer, typecheck_program
 from utils import compact as _compact
 from utils import (LangError, break_pattern, collect_vars, parse_expr,
-                   split_top, protect, unprotect, where)
+                   split_top, protect, unprotect, where, LITERAL_DICT)
+
+DEFAULT_RECURSION_LIMIT = 10_000
+sys.setrecursionlimit(DEFAULT_RECURSION_LIMIT)
+
+
+def set_recursion_limit(limit=DEFAULT_RECURSION_LIMIT):
+    """Set Python's recursion limit for interpreting recursive Peano programs."""
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("recursion limit must be a positive integer")
+    sys.setrecursionlimit(limit)
+
+LITERAL_NAMES = {}
+for _name, _symbol in LITERAL_DICT.items():
+    LITERAL_NAMES.setdefault(_symbol, _name)
 
 
 # ================================================================ loading
-def read_program(path, strict=False):
+def read_program(path):
     functions = {}
     func = clause = None
     in_such = False
@@ -46,15 +61,15 @@ def read_program(path, strict=False):
             except ValueError as e:
                 fail(str(e))
 
-        if strict and raw[:indent].count("\t"):
-            fail("tabs are not allowed for indentation in --strict mode")
-        if strict and indent % 2:
+        if "\t" in raw[:indent]:
+            fail("tabs are not allowed for indentation")
+        if indent % 2:
             fail(f"indentation must use 2-space steps, got {indent} spaces")
 
         if indent == 0:  # function header
-            if strict and not text.endswith("::"):
-                fail("function signature must end with '::' in --strict mode")
-            header_text = text[:-2].rstrip() if strict else text
+            if not text.endswith("::"):
+                fail("function signature must end with '::'")
+            header_text = text[:-2].rstrip()
             name, _, rest = header_text.partition(" ")
             if not rest.strip():
                 fail("header must look like:  name Type => Type => ReturnType ::")
@@ -79,7 +94,7 @@ def read_program(path, strict=False):
             clause, in_such = None, False
 
         elif text.startswith("."):  # clause
-            if strict and indent != 2:
+            if indent != 2:
                 fail(f"clause must be indented exactly 2 spaces, got {indent}")
             if func is None:
                 fail("clause before any function header")
@@ -96,7 +111,7 @@ def read_program(path, strict=False):
             in_such = False
 
         elif text.startswith("suchthat"):
-            if strict and indent != 4:
+            if indent != 4:
                 fail(f"'suchthat' must be indented exactly 4 spaces, got {indent}")
             if clause is None:
                 fail("'suchthat' must be inside a clause")
@@ -105,7 +120,7 @@ def read_program(path, strict=False):
             in_such = True
 
         elif in_such and ":=" in text:  # suchthat entry:  name := expr
-            if strict and indent != 6:
+            if indent != 6:
                 fail(
                     f"suchthat definitions must be indented exactly 6 spaces, got {indent}"
                 )
@@ -206,15 +221,21 @@ def add_from_refer(functions, call_text=None, index=None, refer_dir=REFER_DIR):
     and that refer/ has. Your own functions always win. Works through
     functions that those functions use, too."""
     index = read_index(refer_dir) if index is None else index
-    todo = set(_names(protect(call_text or "")))
+    todo = {(name, None) for name in _names(protect(call_text or ""))}
     for func in list(functions.values()):
-        todo |= called_names(func)
+        todo.update((name, None) for name in called_names(func))
     cache = {}
     while todo:
-        name = todo.pop()
-        if name in functions or name not in index:
+        name, scope_file = todo.pop()
+        if name in functions:
             continue
-        file = index[name]
+        file = index.get(name)
+        if file is None:
+            # Underscore helpers are private to their refer file. They are
+            # reachable only through a function loaded from that same file.
+            if not name.startswith("_") or scope_file is None:
+                continue
+            file = scope_file
         if file not in cache:
             path = Path(refer_dir) / file
             if not path.exists():
@@ -230,15 +251,15 @@ def add_from_refer(functions, call_text=None, index=None, refer_dir=REFER_DIR):
                             f"but it is not there any more. Run refer.py again")
         func["file"] = f"refer/{file}"
         functions[name] = func
-        todo |= called_names(func)
+        todo.update((dep, file) for dep in called_names(func))
     return functions
 
 
-def load_program(path, strict=False, call=None, use_refer=True):
+def load_program(path, call=None, use_refer=True):
     """Read, check and type-check a program. A function it uses but does not
     define is taken from refer/ (call = the call text, so a function you only
     call, and never use in the file, is found too)."""
-    functions = read_program(path, strict=strict)
+    functions = read_program(path)
     if use_refer:
         add_from_refer(functions, call)
     return typecheck_program(analyse(functions))  # always on: type errors stop the load
@@ -258,7 +279,7 @@ def peano(n):
 
 
 def fmt(v):
-    """Readable output: Peano as a number, lists as [a, b], Literals quoted."""
+    """Readable output: Peano as a number and Literals by their dictionary names."""
     tag = v[0]
     if tag in ("Nil", "Nx"):
         n = 0
@@ -269,7 +290,7 @@ def fmt(v):
     if tag in ("Yes", "No"):
         return tag
     if tag == "Lit":
-        return "'" + v[1] + "'"
+        return LITERAL_NAMES.get(v[1], repr(v[1]))
     if tag in ("MT", "Dsq"):
         items = []
         while v[0] == "Dsq":
@@ -284,7 +305,7 @@ def fmt(v):
 def raw_fmt(v):
     tag = v[0]
     if tag == "Lit":
-        return v[1]
+        return LITERAL_NAMES.get(v[1], repr(v[1]))
     if len(v) == 1:
         return tag
     return tag + "(" + ", ".join(raw_fmt(x) for x in v[1:]) + ")"
@@ -299,7 +320,8 @@ def match(p, v, env):
         return True
     if kind == "Con":
         name = p[1]
-        return v == (("Lit", name) if len(name) == 1 else (name,))
+        expected = ("Lit", LITERAL_DICT[name]) if name in LITERAL_DICT else (name,)
+        return v == expected
     if kind == "Op":
         if v[0] != p[1]:
             return False
@@ -313,7 +335,7 @@ def evaluate(node, functions, env):
         return env[node[1]]
     if kind == "Con":
         name = node[1]
-        return ("Lit", name) if len(name) == 1 else (name,)
+        return ("Lit", LITERAL_DICT[name]) if name in LITERAL_DICT else (name,)
     if kind == "Num":
         return peano(node[1])
     if kind == "Op":
@@ -434,9 +456,9 @@ def convert_lists(expression):
 
 # ================================================================ use from a Python file
 def run_call(functions, text):
-    """Run a call written exactly like on the terminal, e.g. "maxoftwo.#4.#9"
-    or "append.[#1,#2].[#3]". Type-checks it, then returns the raw value."""
-    tree = parse_expr(convert_lists(protect(text)), functions, set(), allow_hash=True)
+    """Run a call written exactly like on the terminal, e.g. "maxoftwo.4.9"
+    or "append.[1,2].[3]". Type-checks it, then returns the raw value."""
+    tree = parse_expr(convert_lists(protect(text)), functions, set())
     try:
         infer(tree, {}, functions)  # type-check the call too
     except ValueError as e:
@@ -476,17 +498,61 @@ def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 1
-    path = Path(argv[1])
-    if not path.exists():
-        print("Error: input file not found:", path)
+    options, positional = [], []
+    recursion_limit = DEFAULT_RECURSION_LIMIT
+    i = 1
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--recursion-limit":
+            i += 1
+            if i >= len(argv):
+                print("Error: --recursion-limit needs a positive integer")
+                return 1
+            try:
+                recursion_limit = int(argv[i])
+            except ValueError:
+                print("Error: --recursion-limit needs a positive integer")
+                return 1
+        elif arg.startswith("--recursion-limit="):
+            try:
+                recursion_limit = int(arg.split("=", 1)[1])
+            except ValueError:
+                print("Error: --recursion-limit needs a positive integer")
+                return 1
+        elif arg.startswith("--"):
+            options.append(arg)
+        else:
+            positional.append(arg)
+        i += 1
+    try:
+        set_recursion_limit(recursion_limit)
+    except ValueError as e:
+        print("Error:", e)
         return 1
 
-    options = [a for a in argv[2:] if a.startswith("--")]
-    call_text = " ".join(a for a in argv[2:] if not a.startswith("--"))
+    path = Path(positional[0]) if positional and Path(positional[0]).is_file() else None
+    call_text = " ".join(positional[1:] if path else positional)
+
+    if path is None:
+        if not call_text:
+            print("Error: provide a program file or a refer function call")
+            return 1
+        if "--norefer" in options:
+            print("Error: a refer function call cannot be used with --norefer")
+            return 1
+        entry = call_text.split(".", 1)[0]
+        if entry not in read_index():
+            print(f"Error: no input file found, and '{entry}' is not in refer/index.txt")
+            return 1
 
     try:
-        functions = load_program(path, strict="--strict" in options, call=call_text,
-                                 use_refer="--norefer" not in options)
+        if path is None:
+            functions = {}
+            add_from_refer(functions, call_text)
+            typecheck_program(analyse(functions))
+        else:
+            functions = load_program(path, call=call_text,
+                                     use_refer="--norefer" not in options)
         if "--dump" in options:
             pprint(functions, sort_dicts=False)
         if call_text:
@@ -507,7 +573,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.setrecursionlimit(1_000_000)  # everything in this language is recursion
     for size_mb in (512, 256, 64):  # big stack so deep recursion doesn't crash
         try:
             threading.stack_size(size_mb * 1024 * 1024)

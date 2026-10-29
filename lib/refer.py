@@ -3,8 +3,8 @@
 usage (from anywhere):
     python lib/refer.py
 
-Paste your .txt programs into root/refer/, run this once, and every function in
-them is listed in refer/index.txt. After that run.py finds those functions by
+Paste your .txt programs into root/refer/, run this once, and public functions
+in them are listed in refer/index.txt. After that run.py finds those functions by
 itself, so a program does not have to write them again. Your own functions in
 texts/ always win over the ones in refer/.
 
@@ -44,7 +44,8 @@ def main():
                 problems.append(f"'{name}' is defined in both {owner[name]} and {path.name}")
             else:
                 owner[name] = path.name
-                listing.append((path.name, signature(func)))
+                if not name.startswith("_"):
+                    listing.append((path.name, signature(func)))
 
     # 2. check each file (it may use functions of the other files)
     if not problems:
@@ -53,7 +54,8 @@ def main():
             for func in funcs.values():
                 func["file"] = f"refer/{path.name}"
             try:
-                add_from_refer(funcs, index=owner, refer_dir=refer_dir)
+                add_from_refer(funcs, index={n: f for n, f in owner.items()
+                                             if not n.startswith("_")}, refer_dir=refer_dir)
                 typecheck_program(analyse(funcs))
             except (LangError, ValueError) as e:
                 problems.append(f"{path.name}: {e}")

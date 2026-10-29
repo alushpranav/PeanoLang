@@ -3,72 +3,80 @@
 Every tree node starts with its kind:
 
     ['Var', 'x']                 variable
-    ['Con', 'Nil']               constant: Nil, MT, Yes, No, or a Literal (one symbol: 5, 'a', '%')
+    ['Con', 'Zero']              constant: core built-in or named Literal from literal_dict.yaml
     ['Op',  'Nx', [child]]       built-in with children (Nx, Dsq, Mktp)
 
 Expressions (RHS) also have:
 
     ['Call', 'name', [args]]     function call
-    ['Num', 12]                  number with 2+ digits = Peano constant
+    ['Num', 12]                  number = Peano constant
 
 Syntax rules enforced here:
     - Name.(...)  is the only way to give a name its children. 'Name(' is an error.
     - Brackets only group.
     - A pair is written Mktp.a.b. There is no (a,b) style and there are no commas.
-    - A Literal is one symbol of any kind: a bare digit (5) or a quoted symbol ('a', '%', '.').
+    - Literal values are named built-ins from literal_dict.yaml; raw and quoted symbols are rejected.
     - Capital first letter = built-in, lowercase (or _) first letter = variable / function.
 """
 
-BUILTINS = {"Nil": 0, "MT": 0, "Yes": 0, "No": 0, "Nx": 1, "Dsq": 2, "Mktp": 2}  # name -> child count
+import json
+import re
+from pathlib import Path
+
+BUILTIN_FILE = Path(__file__).with_name("literal_dict.yaml")
+CORE_BUILTINS = {"Nil": 0, "MT": 0, "Yes": 0, "No": 0,
+                 "Nx": 1, "Dsq": 2, "Mktp": 2}
+
+
+def _load_literal_dict(path=BUILTIN_FILE):
+    """Read a simple YAML mapping of Literal names to quoted one-character strings."""
+    values = {}
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith(("#", "//", "--")):
+            continue
+        name, sep, encoded = line.partition(":")
+        name, encoded = name.strip(), encoded.strip()
+        if not sep or not re.fullmatch(r"[A-Z][A-Za-z0-9_]*", name):
+            raise ValueError(f"{path.name}:{line_no}: expected BuiltinName: \"symbol\"")
+        if name in CORE_BUILTINS:
+            raise ValueError(f"{path.name}:{line_no}: '{name}' is reserved")
+        try:
+            value = json.loads(encoded)
+        except ValueError as e:
+            raise ValueError(f"{path.name}:{line_no}: invalid JSON symbol: {e}")
+        if not isinstance(value, str) or len(value) != 1:
+            raise ValueError(f"{path.name}:{line_no}: each value must be exactly one character")
+        if name in values:
+            raise ValueError(f"{path.name}:{line_no}: duplicate name '{name}'")
+        values[name] = value
+    if not values:
+        raise ValueError(f"{path.name}: no Literal constants defined")
+    return values
+
+
+LITERAL_DICT = _load_literal_dict()
+BUILTINS = {**CORE_BUILTINS, **{name: 0 for name in LITERAL_DICT}}
 
 
 class LangError(Exception):
     """An error in the user's program (with line info)."""
 
 
-# A quoted Literal like 'a' is swapped for a placeholder (LIT + code + END) before the
-# text is split on dots, brackets and spaces, so that 'a', '.', '(' or ' ' are safe.
-LIT, END = "\x01", "\x02"
-
-
 def protect(s):
-    """Replace every quoted Literal 'c' with a placeholder. Spaces are kept."""
-    out, i = [], 0
-    while i < len(s):
-        if s[i] != "'":
-            out.append(s[i])
-            i += 1
-        elif i + 2 < len(s) and s[i + 2] == "'":
-            out.append(f"{LIT}{ord(s[i + 1])}{END}")
-            i += 3
-        else:
-            raise ValueError("A quoted Literal is exactly one symbol between quotes, like 'a'")
-    return "".join(out)
+    """Reject direct quoted Literals; use names from literal_dict.yaml instead."""
+    if "'" in s or '"' in s:
+        raise ValueError("Direct quoted Literals are disabled; use a name from literal_dict.yaml")
+    return s
 
 
 def unprotect(s):
-    """Placeholders back to 'c', for error messages."""
-    out, i = [], 0
-    while i < len(s):
-        if s[i] == LIT and END in s[i:]:
-            j = s.index(END, i)
-            out.append("'" + chr(int(s[i + 1:j])) + "'")
-            i = j + 1
-        else:
-            out.append(s[i])
-            i += 1
-    return "".join(out)
-
-
-def lit_char(token):
-    """The symbol inside a placeholder token."""
-    if not (token.startswith(LIT) and token.endswith(END) and token[1:-1].isdigit()):
-        raise ValueError(f"Bad Literal in: {unprotect(token)}")
-    return chr(int(token[1:-1]))
+    """Compatibility helper for parser error formatting."""
+    return s
 
 
 def compact(s):
-    """Remove all whitespace (except inside a quoted Literal)."""
+    """Remove whitespace, rejecting direct quoted Literal syntax."""
     return "".join(protect(s).split())
 
 
@@ -174,17 +182,8 @@ def _break(s):
             raise ValueError(f"Function call not allowed on LHS: {s}")
         return ["Var", head]
 
-    if head[0] == LIT:
-        if children:
-            raise ValueError(f"A Literal can't have children: {s}")
-        return ["Con", lit_char(head)]
-
     if head[0].isdigit():
-        if not head.isdigit() or len(head) != 1:
-            raise ValueError(f"A bare digit is a Literal (one digit), got '{head}'. Write a symbol as 'a'")
-        if children:
-            raise ValueError(f"A Literal can't have children: {s}")
-        return ["Con", head]
+        raise ValueError("Bare digit Literals are disabled; use a name from literal_dict.yaml")
 
     if head not in BUILTINS:
         raise ValueError(f"Unknown built-in '{head}' in: {s}")
@@ -202,7 +201,7 @@ def break_pattern(s):
 
 
 # ---------------------------------------------------------------- expressions (RHS)
-def _expr(s, funcs, bound, allow_hash):
+def _expr(s, funcs, bound):
     s = _unwrap(s)
     parts = split_top(s, ".")
     if not parts:
@@ -212,38 +211,22 @@ def _expr(s, funcs, bound, allow_hash):
         raise ValueError(f"A bracket group can't take arguments in: {s}")
 
     # literals and numbers
-    if head.startswith(LIT):
-        if rest:
-            raise ValueError(f"A Literal can't take arguments in: {s}")
-        return ["Con", lit_char(head)]
     if head.isdigit():
         if rest:
             raise ValueError(f"A number can't take arguments in: {s}")
-        return ["Con", head] if len(head) == 1 else ["Num", int(head)]
-    if allow_hash and head.startswith("#") and head[1:].isdigit():
-        if rest:
-            raise ValueError(f"A number can't take arguments in: {s}")
-        return ["Num", int(head[1:])]
-
-    # in a call typed on the terminal, one bare symbol is a Literal:  toh.#2.a.b.c
-    if allow_hash and len(head) == 1 and head not in "()" and head not in funcs and head not in bound:
-        if rest:
-            raise ValueError(f"A Literal can't take arguments in: {s}")
-        return ["Con", head]
-
+        return ["Num", int(head)]
     # function call or variable
     if _is_var(head):
         if head in funcs:
             want = funcs[head]["args_count"]
             if len(rest) != want:
                 raise ValueError(f"'{head}' takes {want} argument(s), got {len(rest)} in: {s}")
-            return ["Call", head, [_expr(r, funcs, bound, allow_hash) for r in rest]]
+            return ["Call", head, [_expr(r, funcs, bound) for r in rest]]
         if head in bound:
             if rest:
                 raise ValueError(f"Variable '{head}' can't take arguments in: {s}")
             return ["Var", head]
-        hint = "   (a Literal is one symbol: a, %, 7)" if allow_hash else ""
-        raise ValueError(f"Unknown name '{head}' in: {s}{hint}")
+        raise ValueError(f"Unknown name '{head}' in: {s}")
 
     # built-in
     if head not in BUILTINS:
@@ -252,11 +235,11 @@ def _expr(s, funcs, bound, allow_hash):
         raise ValueError(f"{head} needs {BUILTINS[head]} child(ren), got {len(rest)} in: {s}")
     if not rest:
         return ["Con", head]
-    return ["Op", head, [_expr(r, funcs, bound, allow_hash) for r in rest]]
+    return ["Op", head, [_expr(r, funcs, bound) for r in rest]]
 
 
-def parse_expr(s, funcs, bound, allow_hash=False):
+def parse_expr(s, funcs, bound):
     """funcs: dict name -> function info (needs 'args_count'); bound: set of variable names."""
     s = compact(s)
     check_syntax(s)
-    return _expr(s, funcs, bound, allow_hash)
+    return _expr(s, funcs, bound)

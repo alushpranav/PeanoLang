@@ -26,7 +26,7 @@ _divide Boolean => Peano => Peano => Tuple.Peano.Peano ::
     suchthat 
       zz := _divide.(gt.y.(sub.x.y)).(sub.x.y).y
 
-inq Tuple.Peano.Peano => Tuple.Peano.Peano ::
+_inq Tuple.Peano.Peano => Tuple.Peano.Peano ::
   .(Mktp.x.y) := Mktp.(Nx.x).y
 
 -------------------------End of Divide------------------------
